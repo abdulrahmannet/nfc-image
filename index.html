@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#14181f">
+<title>صورة على كارتين NFC</title>
+<style>
+:root{
+  --bg:#14181f; --panel:#1c222c; --panel2:#242c39; --line:#303a4a;
+  --text:#e8edf4; --muted:#93a0b4; --accent:#5fc8e6; --ok:#4cd39a; --bad:#ff6b6b; --warn:#f5b84b;
+}
+*{box-sizing:border-box;margin:0}
+html,body{background:var(--bg);color:var(--text);font-family:"Segoe UI",Tahoma,"Noto Naskh Arabic",Arial,sans-serif;line-height:1.7}
+body{padding:14px;max-width:560px;margin:0 auto;padding-bottom:40px}
+h1{font-size:1.25rem;margin:6px 0 12px}
+.tabs{display:flex;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:4px;gap:4px;margin-bottom:14px}
+.tab{flex:1;border:0;background:transparent;color:var(--muted);padding:10px 6px;border-radius:9px;font:inherit;font-weight:600;cursor:pointer}
+.tab[aria-selected="true"]{background:var(--accent);color:#06222b}
+.pane{display:none}.pane.on{display:block}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px;margin-bottom:12px}
+button,.btn{font:inherit;font-weight:600;border:0;border-radius:10px;padding:11px 14px;cursor:pointer;background:var(--panel2);color:var(--text);border:1px solid var(--line);width:100%;margin-top:8px;text-align:center;text-decoration:none;display:block}
+button.primary,.btn.primary{background:var(--accent);color:#06222b;border-color:var(--accent)}
+button:disabled{opacity:.4;cursor:not-allowed}
+button:focus-visible,input:focus-visible,select:focus-visible,.tab:focus-visible{outline:2px solid var(--warn);outline-offset:2px}
+input[type=file],select{width:100%;background:var(--panel2);color:var(--text);border:1px solid var(--line);border-radius:10px;padding:10px;font:inherit}
+label{display:block;color:var(--muted);font-size:.9rem;margin-top:10px}
+label b{color:var(--text);float:left;font-variant-numeric:tabular-nums}
+input[type=range]{width:100%;accent-color:var(--accent);margin-top:4px}
+.preview{display:flex;gap:12px;align-items:center}
+.preview .thumb{width:128px;height:128px;flex:none;background:repeating-conic-gradient(#222b38 0 25%,#1a212b 0 50%) 0 0/16px 16px;border-radius:10px;display:grid;place-items:center;overflow:hidden}
+.thumb img{image-rendering:pixelated;max-width:100%;max-height:100%}
+.stats{font-size:.9rem;color:var(--muted);flex:1}
+.stats div{display:flex;justify-content:space-between;gap:8px;border-bottom:1px dashed var(--line);padding:2px 0}
+.stats span:last-child{color:var(--text);direction:ltr;font-variant-numeric:tabular-nums}
+.badge{margin-top:10px;padding:9px 12px;border-radius:10px;font-weight:600;font-size:.95rem}
+.badge.ok{background:rgba(76,211,154,.12);color:var(--ok);border:1px solid var(--ok)}
+.badge.bad{background:rgba(255,107,107,.12);color:var(--bad);border:1px solid var(--bad)}
+.badge.info{background:rgba(95,200,230,.1);color:var(--accent);border:1px solid var(--accent)}
+.badge.warn{background:rgba(245,184,75,.12);color:var(--warn);border:1px solid var(--warn)}
+.parts{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}
+.part{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:8px;font-size:.85rem;text-align:center}
+.part b{display:block;direction:ltr}
+.result{display:none;text-align:center}
+.result img{max-width:100%;image-rendering:pixelated;border-radius:10px;background:var(--panel2);min-width:128px}
+#toast{position:fixed;bottom:16px;left:12px;right:12px;max-width:536px;margin:auto;padding:12px 14px;border-radius:12px;background:var(--panel2);border:1px solid var(--line);display:none;z-index:9;box-shadow:0 8px 24px rgba(0,0,0,.5)}
+#toast.bad{border-color:var(--bad)}#toast.ok{border-color:var(--ok)}
+small{color:var(--muted)}
+@media (max-width:420px){.preview{flex-direction:column;align-items:stretch}.preview .thumb{width:100%;height:150px}}
+@media (prefers-reduced-motion:no-preference){.badge{transition:background .2s}}
+</style>
+</head>
+<body>
+<h1>صورة على كارتين NFC</h1>
+
+<div class="tabs" role="tablist">
+  <button class="tab" role="tab" id="tabW" aria-selected="true" data-p="paneW">ضغط وكتابة</button>
+  <button class="tab" role="tab" id="tabR" aria-selected="false" data-p="paneR">قراءة ودمج</button>
+</div>
+
+<div id="envMsg"></div>
+
+<!-- ============ ضغط وكتابة ============ -->
+<section class="pane on" id="paneW">
+  <div class="card">
+    <input type="file" id="file" accept="image/*" aria-label="اختيار صورة">
+    <small>الحد الأقصى بعد الضغط: <span dir="ltr">936</span> بايت (<span dir="ltr">468</span> لكل كارت + ترويسة NDEF).</small>
+  </div>
+
+  <div class="card" id="outCard" style="display:none">
+    <div class="preview">
+      <div class="thumb"><img id="prev" alt="معاينة الصورة بعد الضغط"></div>
+      <div class="stats">
+        <div><span>الأبعاد الجديدة</span><span id="sDim">-</span></div>
+        <div><span>الحجم الأصلي</span><span id="sOrig">-</span></div>
+        <div><span>بعد الضغط</span><span id="sNew">-</span></div>
+      </div>
+    </div>
+    <div class="parts">
+      <div class="part">الجزء الأول مع الترويسة<b id="p1">-</b></div>
+      <div class="part">الجزء الثاني مع الترويسة<b id="p2">-</b></div>
+    </div>
+    <div class="badge" id="fit"></div>
+
+    <label for="rDim">أقصى بُعد للصورة <b id="vDim">64px</b></label>
+    <input type="range" id="rDim" min="16" max="128" step="1" value="64">
+    <label for="rQ">جودة الضغط <b id="vQ">50%</b></label>
+    <input type="range" id="rQ" min="5" max="95" step="1" value="50">
+    <button id="auto">إعادة الضبط التلقائي</button>
+  </div>
+
+  <div class="card" id="writeCard" style="display:none">
+    <button class="primary" id="w1">طباعة الجزء الأول على الكارت الأول</button>
+    <button class="primary" id="w2" disabled>طباعة الجزء التاني على الكارت التاني</button>
+    <div class="badge info" id="wStat" style="display:none"></div>
+  </div>
+</section>
+
+<!-- ============ قراءة ودمج ============ -->
+<section class="pane" id="paneR">
+  <div class="card">
+    <label for="fmt" style="margin-top:0">صيغة الصورة</label>
+    <select id="fmt">
+      <option value="auto">تلقائي من الكارت (Auto)</option>
+      <option value="image/webp">WebP</option>
+      <option value="image/jpeg">JPEG</option>
+      <option value="image/png">PNG</option>
+    </select>
+    <button class="primary" id="scan">ابدأ المسح</button>
+    <button id="reset" style="display:none">إعادة المسح من جديد</button>
+    <div class="badge info" id="rStat" style="display:none"></div>
+  </div>
+  <div class="card result" id="res">
+    <img id="merged" alt="الصورة بعد الدمج">
+    <p id="mSize" style="margin-top:8px"></p>
+    <a class="btn primary" id="dl" download="nfc-image.webp">تحميل الصورة</a>
+  </div>
+</section>
+
+<div id="toast" role="status" aria-live="polite"></div>
+
+<script>
+(function(){
+"use strict";
+const MAX_TOTAL = 936, CARD_CAP = 492, HDR = 21;
+const DIMS = [96,80,64,56,48,40,32,24,16];
+const $ = id => document.getElementById(id);
+
+/* ---------- أدوات عامة ---------- */
+let toastT;
+function toast(msg, type){
+  const t=$("toast"); t.textContent=msg; t.className=type||""; t.style.display="block";
+  clearTimeout(toastT); toastT=setTimeout(()=>t.style.display="none",6000);
+}
+function setBadge(el,cls,msg){ el.className="badge "+cls; el.textContent=msg; el.style.display="block"; }
+function fmtB(n){ return n+" B"; }
+
+/* ---------- التبويبات ---------- */
+document.querySelectorAll(".tab").forEach(b=>b.addEventListener("click",()=>{
+  document.querySelectorAll(".tab").forEach(x=>x.setAttribute("aria-selected",x===b));
+  document.querySelectorAll(".pane").forEach(p=>p.classList.toggle("on",p.id===b.dataset.p));
+}));
+
+/* ---------- فحص البيئة ---------- */
+function nfcSupport(){
+  if(!("NDEFReader" in window)){
+    const ua=navigator.userAgent||"";
+    const wv=/; wv\)|FBAN|FBAV|Instagram|Telegram|Line\//i.test(ua);
+    return wv
+      ? "يبدو أن الصفحة مفتوحة داخل متصفح مضمّن (WebView). افتحها في Google Chrome على أندرويد عبر رابط HTTPS."
+      : "متصفحك لا يدعم Web NFC. استخدم Google Chrome على هاتف أندرويد مع تفعيل NFC.";
+  }
+  if(!window.isSecureContext) return "Web NFC يعمل فقط عبر اتصال آمن. افتح الصفحة من رابط HTTPS.";
+  return "";
+}
+const envErr = nfcSupport();
+if(envErr){ const d=$("envMsg"); d.innerHTML=""; const b=document.createElement("div"); b.className="badge bad"; b.style.marginBottom="12px"; b.textContent=envErr; d.appendChild(b); }
+
+function nfcErrorText(e){
+  const n=e&&e.name;
+  if(n==="NotAllowedError") return "تم رفض إذن NFC. اسمح بالإذن في Chrome، وتأكد أن الصفحة على HTTPS وليست داخل WebView.";
+  if(n==="NotSupportedError") return "الجهاز لا يدعم NFC أو أنه غير مفعّل في إعدادات الهاتف.";
+  if(n==="NotReadableError") return "تعذّرت القراءة. قرّب الكارت من ظهر الهاتف وثبّته ثم أعد المحاولة.";
+  if(n==="NetworkError") return "فشلت الكتابة على الكارت. ثبّت الكارت على منطقة NFC وأعد المحاولة، وتأكد أن سعته كافية وأنه غير مقفل للكتابة.";
+  if(n==="AbortError") return "تم إيقاف العملية.";
+  if(n==="InvalidStateError") return "عملية NFC أخرى قيد التنفيذ. انتظر قليلاً ثم أعد المحاولة.";
+  return "خطأ NFC: "+(e&&e.message?e.message:String(e));
+}
+
+/* ======================= ضغط وكتابة ======================= */
+let img=null, origSize=0, bytes=null, parts=[null,null], wrote=[false,false], busy=false;
+
+function encode(maxDim,q){
+  const s=Math.min(1,maxDim/Math.max(img.naturalWidth,img.naturalHeight));
+  const w=Math.max(1,Math.round(img.naturalWidth*s)), h=Math.max(1,Math.round(img.naturalHeight*s));
+  const c=document.createElement("canvas"); c.width=w; c.height=h;
+  const x=c.getContext("2d"); x.fillStyle="#fff"; x.fillRect(0,0,w,h);
+  x.imageSmoothingEnabled=true; x.imageSmoothingQuality="high";
+  x.drawImage(img,0,0,w,h);
+  return new Promise((res,rej)=>c.toBlob(b=>{
+    if(!b) return rej(new Error("فشل ترميز الصورة"));
+    if(b.type!=="image/webp") return rej(new Error("المتصفح لا يدعم ترميز WebP"));
+    res({blob:b,w,h,q,size:b.size});
+  },"image/webp",q));
+}
+
+async function autoCompress(){
+  let last=null;
+  const dims=DIMS.filter(d=>d<=Math.max(img.naturalWidth,img.naturalHeight)||d===16);
+  const list=dims.length?dims:[16];
+  for(const d of list){
+    let r=await encode(d,0.05); last=r;
+    if(r.size>MAX_TOTAL) continue;
+    let lo=0.05, hi=0.92, best=r;
+    for(let i=0;i<9;i++){
+      const mid=(lo+hi)/2, t=await encode(d,mid);
+      if(t.size<=MAX_TOTAL){ best=t; lo=mid; } else hi=mid;
+    }
+    const top=await encode(d,0.92);
+    if(top.size<=MAX_TOTAL) best=top;
+    return best;
+  }
+  return last;
+}
+
+async function useResult(r,syncSliders){
+  const buf=new Uint8Array(await r.blob.arrayBuffer());
+  bytes=buf;
+  const half=Math.ceil(buf.length/2);
+  parts=[buf.slice(0,half),buf.slice(half)];
+  wrote=[false,false];
+  const url=URL.createObjectURL(r.blob);
+  const old=$("prev").src; $("prev").src=url; if(old&&old.startsWith("blob:")) URL.revokeObjectURL(old);
+  $("sDim").textContent=r.w+"×"+r.h;
+  $("sOrig").textContent=fmtB(origSize);
+  $("sNew").textContent=fmtB(buf.length);
+  const s1=parts[0].length+HDR, s2=parts[1].length+HDR;
+  $("p1").textContent=fmtB(s1)+" / "+CARD_CAP;
+  $("p2").textContent=fmtB(s2)+" / "+CARD_CAP;
+  const ok=buf.length<=MAX_TOTAL && s1<=CARD_CAP && s2<=CARD_CAP;
+  setBadge($("fit"),ok?"ok":"bad",ok?"الحجم مناسب للطباعة على الكارتين.":"الحجم يتجاوز الحد ("+MAX_TOTAL+" بايت). صغّر البُعد أو قلّل الجودة.");
+  if(syncSliders){
+    const md=Math.max(r.w,r.h);
+    $("rDim").value=md; $("vDim").textContent=md+"px";
+    $("rQ").value=Math.round(r.q*100); $("vQ").textContent=Math.round(r.q*100)+"%";
+  }
+  $("outCard").style.display="block"; $("writeCard").style.display="block";
+  $("w1").disabled=!ok||!!envErr; $("w2").disabled=true; $("w1").textContent="طباعة الجزء الأول على الكارت الأول";
+  $("wStat").style.display="none";
+  if(!ok) $("w1").disabled=true;
+}
+
+async function runAuto(){
+  if(!img||busy) return; busy=true;
+  setBadge($("fit"),"info","جارٍ الضغط...");
+  try{ await useResult(await autoCompress(),true); }
+  catch(e){ toast(e.message,"bad"); }
+  busy=false;
+}
+
+$("file").addEventListener("change",e=>{
+  const f=e.target.files[0]; if(!f) return;
+  origSize=f.size;
+  const u=URL.createObjectURL(f), i=new Image();
+  i.onload=()=>{ img=i; URL.revokeObjectURL(u); $("outCard").style.display="block"; runAuto(); };
+  i.onerror=()=>{ URL.revokeObjectURL(u); toast("تعذّر فتح الصورة. اختر ملف صورة صالحاً.","bad"); };
+  i.src=u;
+});
+
+let manT;
+function manual(){
+  $("vDim").textContent=$("rDim").value+"px"; $("vQ").textContent=$("rQ").value+"%";
+  clearTimeout(manT);
+  manT=setTimeout(async()=>{
+    if(!img) return;
+    try{ await useResult(await encode(+$("rDim").value,+$("rQ").value/100),false); }
+    catch(e){ toast(e.message,"bad"); }
+  },120);
+}
+$("rDim").addEventListener("input",manual);
+$("rQ").addEventListener("input",manual);
+$("auto").addEventListener("click",runAuto);
+
+async function writePart(idx){
+  if(envErr){ toast(envErr,"bad"); return; }
+  if(idx===1 && !wrote[0]){ toast("اطبع الجزء الأول أولاً.","bad"); return; }
+  if(wrote[idx]) return;
+  const btn=$(idx?"w2":"w1"); btn.disabled=true;
+  setBadge($("wStat"),"warn","قرّب الكارت "+(idx?"الثاني":"الأول")+" من ظهر الهاتف وثبّته...");
+  try{
+    const w=new NDEFReader();
+    await w.write({records:[{recordType:"mime",mediaType:"image/webp",data:parts[idx]}]});
+    wrote[idx]=true;
+    if(idx===0){
+      setBadge($("wStat"),"ok","تمت كتابة الجزء الأول. أبعد الكارت الأول، ثم اطبع الجزء الثاني على كارت مختلف.");
+      $("w2").disabled=false; btn.textContent="تمت الكتابة على الكارت الأول ✓";
+    }else{
+      setBadge($("wStat"),"ok","تمت كتابة الكارتين بنجاح. انتقل إلى تبويب القراءة والدمج للتجربة.");
+      btn.textContent="تمت الكتابة على الكارت الثاني ✓";
+    }
+    toast("تمت الكتابة بنجاح","ok");
+  }catch(e){
+    btn.disabled=false;
+    setBadge($("wStat"),"bad",nfcErrorText(e)); toast(nfcErrorText(e),"bad");
+  }
+}
+$("w1").addEventListener("click",()=>writePart(0));
+$("w2").addEventListener("click",()=>writePart(1));
+
+/* ======================= قراءة ودمج ======================= */
+let reader=null, ctrl=null, first=null, scanning=false, mergedUrl=null;
+
+function resetRead(){
+  if(ctrl){ try{ctrl.abort();}catch(_){} }
+  ctrl=null; reader=null; first=null; scanning=false;
+  if(mergedUrl){ URL.revokeObjectURL(mergedUrl); mergedUrl=null; }
+  $("res").style.display="none"; $("reset").style.display="none";
+  $("rStat").style.display="none";
+  $("scan").disabled=false; $("scan").textContent="ابدأ المسح";
+}
+
+function extractBytes(ev){
+  for(const r of ev.message.records){
+    if(r.data && r.recordType!=="empty"){
+      const d=r.data; // DataView
+      return {data:new Uint8Array(d.buffer.slice(d.byteOffset,d.byteOffset+d.byteLength)),type:r.mediaType||""};
+    }
+  }
+  return null;
+}
+
+function finish(a,b,type){
+  const all=new Uint8Array(a.length+b.length); all.set(a,0); all.set(b,a.length);
+  const sel=$("fmt").value;
+  const mt=sel==="auto"?(type||"image/webp"):sel;
+  const blob=new Blob([all],{type:mt});
+  if(mergedUrl) URL.revokeObjectURL(mergedUrl);
+  mergedUrl=URL.createObjectURL(blob);
+  $("merged").src=mergedUrl;
+  $("mSize").textContent="الحجم الإجمالي: "+all.length+" بايت";
+  const ext=(mt.split("/")[1]||"webp").replace("jpeg","jpg");
+  $("dl").href=mergedUrl; $("dl").download="nfc-image."+ext;
+  $("res").style.display="block"; $("reset").style.display="block";
+  setBadge($("rStat"),"ok","تم دمج الكارتين وعرض الصورة.");
+  if(ctrl){ try{ctrl.abort();}catch(_){} } scanning=false;
+  $("scan").disabled=false; $("scan").textContent="ابدأ المسح";
+}
+
+function onReading(ev){
+  const got=extractBytes(ev);
+  if(!got){ toast("هذا الكارت لا يحتوي على بيانات صورة.","bad"); return; }
+  if(!first){
+    first={data:got.data,serial:ev.serialNumber||"",type:got.type};
+    setBadge($("rStat"),"ok","تم حفظ الكارت الأول ("+got.data.length+" بايت). أبعده الآن وقرّب الكارت الثاني.");
+    return;
+  }
+  if(ev.serialNumber && ev.serialNumber===first.serial){
+    toast("هذا هو الكارت الأول نفسه. قرّب الكارت الثاني.","bad");
+    setBadge($("rStat"),"warn","تم مسح نفس الكارت الأول مرة أخرى. قرّب الكارت الثاني.");
+    return;
+  }
+  finish(first.data,got.data,first.type||got.type);
+}
+
+$("scan").addEventListener("click",async()=>{
+  if(envErr){ toast(envErr,"bad"); return; }
+  if(scanning) return;
+  resetRead();
+  try{
+    reader=new NDEFReader(); ctrl=new AbortController();
+    reader.onreadingerror=()=>toast("تعذّرت قراءة الكارت. أعد تقريبه وثبّته.","bad");
+    reader.onreading=onReading;
+    await reader.scan({signal:ctrl.signal});
+    scanning=true;
+    $("scan").disabled=true; $("scan").textContent="جارٍ المسح...";
+    $("reset").style.display="block";
+    setBadge($("rStat"),"info","قرّب الكارت الأول من ظهر الهاتف.");
+  }catch(e){
+    scanning=false; toast(nfcErrorText(e),"bad"); setBadge($("rStat"),"bad",nfcErrorText(e));
+  }
+});
+$("reset").addEventListener("click",resetRead);
+})();
+</script>
+</body>
+</html>

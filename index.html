@@ -170,6 +170,28 @@ function nfcErrorText(e){
 /* ======================= ضغط وكتابة ======================= */
 let img=null, origSize=0, bytes=null, parts=[null,null], wrote=[false,false], busy=false;
 
+/* يحذف بيانات ICC وترويسة VP8X ويُبقي بيانات الصورة فقط (يوفّر مئات البايتات) */
+function stripWebP(u8){
+  if(u8.length<20) return u8;
+  const dv=new DataView(u8.buffer,u8.byteOffset,u8.byteLength);
+  let p=12;
+  while(p+8<=u8.length){
+    const tag=String.fromCharCode(u8[p],u8[p+1],u8[p+2],u8[p+3]);
+    const sz=dv.getUint32(p+4,true);
+    if(tag==="VP8 "||tag==="VP8L"){
+      const total=4+8+sz+(sz&1);
+      const out=new Uint8Array(8+total);
+      out.set([82,73,70,70],0);
+      new DataView(out.buffer).setUint32(4,total,true);
+      out.set([87,69,66,80],8);
+      out.set(u8.subarray(p,p+8+sz),12);
+      return out;
+    }
+    p+=8+sz+(sz&1);
+  }
+  return u8;
+}
+
 function encode(maxDim,q){
   const s=Math.min(1,maxDim/Math.max(img.naturalWidth,img.naturalHeight));
   const w=Math.max(1,Math.round(img.naturalWidth*s)), h=Math.max(1,Math.round(img.naturalHeight*s));
@@ -177,10 +199,13 @@ function encode(maxDim,q){
   const x=c.getContext("2d"); x.fillStyle="#fff"; x.fillRect(0,0,w,h);
   x.imageSmoothingEnabled=true; x.imageSmoothingQuality="high";
   x.drawImage(img,0,0,w,h);
-  return new Promise((res,rej)=>c.toBlob(b=>{
+  return new Promise((res,rej)=>c.toBlob(async b=>{
     if(!b) return rej(new Error("فشل ترميز الصورة"));
     if(b.type!=="image/webp") return rej(new Error("المتصفح لا يدعم ترميز WebP"));
-    res({blob:b,w,h,q,size:b.size});
+    try{
+      const buf=stripWebP(new Uint8Array(await b.arrayBuffer()));
+      res({blob:new Blob([buf],{type:"image/webp"}),w,h,q,size:buf.length});
+    }catch(e){ rej(e); }
   },"image/webp",q));
 }
 

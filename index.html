@@ -1,0 +1,622 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#14181f">
+<title>ملفات على كروت NFC</title>
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<style>
+:root{--bg:#14181f;--panel:#1c222c;--panel2:#242c39;--line:#303a4a;--text:#e8edf4;--muted:#93a0b4;--accent:#5fc8e6;--ok:#4cd39a;--bad:#ff6b6b;--warn:#f5b84b}
+*{box-sizing:border-box;margin:0}
+html,body{background:var(--bg);color:var(--text);font-family:"Segoe UI",Tahoma,"Noto Naskh Arabic",Arial,sans-serif;line-height:1.7}
+body{padding:14px;max-width:560px;margin:0 auto 40px}
+h1{font-size:1.25rem;margin:6px 0 12px}
+.tabs{display:flex;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:4px;gap:4px;margin-bottom:14px}
+.tab{flex:1;border:0;background:transparent;color:var(--muted);padding:10px 6px;border-radius:9px;font:inherit;font-weight:600;cursor:pointer}
+.tab[aria-selected="true"]{background:var(--accent);color:#06222b}
+.pane{display:none}.pane.on{display:block}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:14px;margin-bottom:12px}
+button,.btn{font:inherit;font-weight:600;border-radius:10px;padding:11px 14px;cursor:pointer;background:var(--panel2);color:var(--text);border:1px solid var(--line);width:100%;margin-top:8px;text-align:center;text-decoration:none;display:block}
+button.primary,.btn.primary{background:var(--accent);color:#06222b;border-color:var(--accent)}
+button:disabled{opacity:.4;cursor:not-allowed}
+:focus-visible{outline:2px solid var(--warn);outline-offset:2px}
+input[type=file],input[type=number]{width:100%;background:var(--panel2);color:var(--text);border:1px solid var(--line);border-radius:10px;padding:10px;font:inherit}
+label{display:block;color:var(--muted);font-size:.9rem;margin-top:10px}
+label b{color:var(--text);float:left}
+input[type=range]{width:100%;accent-color:var(--accent);margin-top:4px}
+.chk{display:flex;gap:8px;align-items:flex-start;color:var(--text);margin-top:8px}
+.chk input{margin-top:6px;accent-color:var(--accent)}
+.preview{display:flex;gap:12px;align-items:center}
+.thumb{width:128px;height:128px;flex:none;background:repeating-conic-gradient(#222b38 0 25%,#1a212b 0 50%) 0 0/16px 16px;border-radius:10px;display:grid;place-items:center;overflow:hidden}
+.thumb img{image-rendering:pixelated;max-width:100%;max-height:100%}
+.stats{font-size:.9rem;color:var(--muted);flex:1}
+.stats div{display:flex;justify-content:space-between;gap:8px;border-bottom:1px dashed var(--line);padding:2px 0}
+.stats span:last-child{color:var(--text);direction:ltr}
+.badge{margin-top:10px;padding:9px 12px;border-radius:10px;font-weight:600;font-size:.95rem}
+.badge.ok{background:rgba(76,211,154,.12);color:var(--ok);border:1px solid var(--ok)}
+.badge.bad{background:rgba(255,107,107,.12);color:var(--bad);border:1px solid var(--bad)}
+.badge.info{background:rgba(95,200,230,.1);color:var(--accent);border:1px solid var(--accent)}
+.badge.warn{background:rgba(245,184,75,.12);color:var(--warn);border:1px solid var(--warn)}
+.parts{display:grid;grid-template-columns:repeat(auto-fill,minmax(110px,1fr));gap:8px;margin-top:10px}
+.part{background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:6px;font-size:.8rem;text-align:center}
+.part b{display:block;direction:ltr}
+.row{display:flex;gap:8px;align-items:center;justify-content:space-between;background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:6px 10px;margin-top:8px}
+.row button{width:auto;margin:0;padding:8px 12px}
+.row.done{border-color:var(--ok)}
+.result{display:none;text-align:center}
+.result img{max-width:100%;image-rendering:pixelated;border-radius:10px;background:var(--panel2);min-width:128px}
+#toast{position:fixed;bottom:16px;left:12px;right:12px;max-width:536px;margin:auto;padding:12px 14px;border-radius:12px;background:var(--panel2);border:1px solid var(--line);display:none;z-index:9}
+#toast.bad{border-color:var(--bad)}#toast.ok{border-color:var(--ok)}
+small{color:var(--muted)}
+@media(max-width:420px){.preview{flex-direction:column;align-items:stretch}.thumb{width:100%;height:150px}}
+.top{display:flex;justify-content:space-between;align-items:center}.top button{width:auto;margin:0;padding:6px 12px;font-size:1.1rem}
+.exp{display:flex;gap:8px;margin-top:8px}.exp select{flex:1;background:var(--panel2);color:var(--text);border:1px solid var(--line);border-radius:10px;padding:10px;font:inherit}
+dialog{background:var(--panel);color:var(--text);border:1px solid var(--bad);border-radius:14px;padding:16px;width:min(420px,90vw);margin:auto}
+dialog::backdrop{background:rgba(0,0,0,.65)}
+[hidden]{display:none!important}
+textarea,select#mode{width:100%;background:var(--panel2);color:var(--text);border:1px solid var(--line);border-radius:10px;padding:10px;font:inherit}
+textarea{resize:vertical;min-height:90px}
+pre#txt{white-space:pre-wrap;word-break:break-word;text-align:start;background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:10px;max-height:50vh;overflow:auto;font:inherit}
+.result audio,.result video{width:100%;max-width:100%;border-radius:10px}
+</style>
+</head>
+<body>
+<div class="top"><h1>ملفات على كروت NFC</h1><button id="snd" aria-label="كتم الأصوات">🔊</button></div>
+<div class="tabs" role="tablist">
+  <button class="tab" role="tab" aria-selected="true" data-p="paneW">ضغط وكتابة</button>
+  <button class="tab" role="tab" aria-selected="false" data-p="paneR">قراءة ودمج</button>
+</div>
+<div id="envMsg"></div>
+
+<section class="pane on" id="paneW">
+  <div class="card">
+    <label for="mode" style="margin-top:0">نوع المحتوى</label>
+    <select id="mode">
+      <option value="img">صورة (WebP تلقائي)</option>
+      <option value="txt">مستند نصي (TXT)</option>
+      <option value="file">ملف جاهز (SVG / GIF / AMR / Codec2 / WebM...)</option>
+      <option value="midi">نغمة موسيقية (MIDI)</option>
+    </select>
+    <div id="secImg"><label for="file">اختيار صورة</label><input type="file" id="file" accept="image/*"></div>
+    <div id="secTxt" hidden>
+      <label for="tx">النص</label>
+      <textarea id="tx" dir="auto" placeholder="اكتب النص هنا..."></textarea>
+      <label class="chk"><input type="checkbox" id="std"><span>نص قياسي يقرأه أي هاتف بدون التطبيق (كارت واحد فقط)</span></label>
+    </div>
+    <div id="secFile" hidden>
+      <label for="rf">اختيار ملف</label><input type="file" id="rf">
+      <small id="fInfo">ترميز AMR وCodec2 والفيديو يتم خارج التطبيق. التطبيق يقسّم الملف على الكروت ثم يدمجه.</small>
+    </div>
+    <div id="secMidi" hidden>
+      <label for="mt">النوتات (مثال: C4 E4 G4 C5:2 -:1 G4)</label>
+      <textarea id="mt" dir="ltr">C4 E4 G4 C5:2</textarea>
+      <label for="bpm">السرعة (نبضة في الدقيقة)</label>
+      <input type="number" id="bpm" value="120" min="30" max="300" inputmode="numeric">
+      <button id="playMk">تشغيل المعاينة</button>
+    </div>
+    <label class="chk" id="dflBox" hidden><input type="checkbox" id="dfl" checked><span>ضغط إضافي (Deflate) إن قلّل الحجم</span></label>
+  </div>
+  <div class="card">
+    <label for="rN" style="margin-top:0">عدد الكروت <b id="vN">2</b></label>
+    <input type="range" id="rN" min="2" max="20" step="1" value="2">
+    <label for="cap">سعة الكارت (بايت)</label>
+    <input type="number" id="cap" value="492" min="80" max="8192" inputmode="numeric">
+    <small>أقصى حجم للمحتوى: <span id="maxB" dir="ltr">-</span> بايت (بعد خصم مساحة النظام وبيانات الترقيم من كل كارت).</small>
+  </div>
+
+  <div class="card" id="outCard" style="display:none">
+    <div class="preview">
+      <div class="thumb"><img id="prev" alt="معاينة الصورة بعد الضغط"></div>
+      <div class="stats">
+        <div><span>الأبعاد</span><span id="sDim">-</span></div>
+        <div><span>الحجم الأصلي</span><span id="sOrig">-</span></div>
+        <div><span>بعد الضغط</span><span id="sNew">-</span></div>
+      </div>
+    </div>
+    <div class="parts" id="parts"></div>
+    <div class="badge" id="fit"></div>
+    <label for="rDim">أقصى بُعد للصورة <b id="vDim">64px</b></label>
+    <input type="range" id="rDim" min="16" max="128" step="1" value="64">
+    <label for="rQ">جودة الضغط <b id="vQ">50%</b></label>
+    <input type="range" id="rQ" min="5" max="95" step="1" value="50">
+    <button id="auto">إعادة الضبط التلقائي</button>
+    <div id="expW"></div>
+  </div>
+
+  <div class="card" id="dataCard" style="display:none">
+    <div class="stats"><div><span>الحجم قبل الضغط</span><span id="dOrig">-</span></div><div><span>الحجم للكتابة</span><span id="dNew">-</span></div></div>
+    <div class="parts" id="parts2"></div>
+    <div class="badge" id="fit2"></div>
+  </div>
+
+  <div class="card" id="writeCard" style="display:none">
+    <button class="primary" id="autoW">كتابة تلقائية لكل الكروت (بالترتيب)</button>
+    <div id="cards"></div>
+    <div class="badge info" id="wStat" style="display:none"></div>
+  </div>
+</section>
+
+<section class="pane" id="paneR">
+  <div class="card">
+    <button class="primary" id="scan">ابدأ المسح</button>
+    <button id="reset" style="display:none">إعادة المسح من جديد</button>
+    <div class="badge info" id="rStat" style="display:none"></div>
+  </div>
+  <div class="card result" id="res">
+    <img id="merged" alt="الصورة بعد الدمج" hidden>
+    <audio id="aud" controls hidden></audio>
+    <video id="vid" controls playsinline hidden></video>
+    <pre id="txt" dir="auto" hidden></pre>
+    <p id="mSize" style="margin-top:8px"></p>
+    <div class="badge" id="crcB"></div>
+    <div id="expR"></div>
+    <button class="primary" id="playM" hidden>تشغيل النغمة</button>
+    <button id="cpy" hidden>نسخ النص</button>
+    <a class="btn primary" id="dl2" download hidden>تحميل الملف</a>
+  </div>
+</section>
+<dialog id="dlg"><p id="dMsg" style="font-weight:600;line-height:1.8"></p><button class="primary" id="dNo">إلغاء</button><button id="dYes" style="border-color:var(--bad);color:var(--bad)">نعم</button></dialog>
+<div id="toast" role="status" aria-live="polite"></div>
+
+<script>
+(function(){
+"use strict";
+const OV=31,HDR=5,MIME="application/x-nfcimg",HAS_CS=typeof CompressionStream!=="undefined";
+const DIMS=[128,112,96,80,64,56,48,40,32,24,16];
+const $=id=>document.getElementById(id);
+let toastT;
+function toast(m,t){if(t==="bad")beep("err");const e=$("toast");e.textContent=m;e.className=t||"";e.style.display="block";clearTimeout(toastT);toastT=setTimeout(()=>e.style.display="none",6000)}
+function badge(e,c,m){e.className="badge "+c;e.textContent=m;e.style.display="block"}
+let mode="img";const std=()=>mode==="txt"&&$("std").checked;
+const N=()=>std()?1:+$("rN").value, CAP=()=>Math.max(80,Math.round(+$("cap").value)||492);
+const PER=()=>std()?CAP()-20:CAP()-OV-HDR, MAXB=()=>N()*PER();
+
+document.querySelectorAll(".tab").forEach(b=>b.addEventListener("click",()=>{
+  document.querySelectorAll(".tab").forEach(x=>x.setAttribute("aria-selected",x===b));
+  document.querySelectorAll(".pane").forEach(p=>p.classList.toggle("on",p.id===b.dataset.p));
+}));
+
+function nfcSupport(){
+  if(!("NDEFReader" in window)){
+    const wv=/; wv\)|FBAN|FBAV|Instagram|Telegram|Line\//i.test(navigator.userAgent||"");
+    return wv?"الصفحة مفتوحة داخل متصفح مضمّن (WebView). افتحها في Google Chrome على أندرويد عبر رابط HTTPS.":"متصفحك لا يدعم Web NFC. استخدم Google Chrome على هاتف أندرويد مع تفعيل NFC.";
+  }
+  return window.isSecureContext?"":"Web NFC يعمل فقط عبر اتصال آمن. افتح الصفحة من رابط HTTPS.";
+}
+const envErr=nfcSupport();
+if(envErr){const b=document.createElement("div");b.className="badge bad";b.style.marginBottom="12px";b.textContent=envErr;$("envMsg").appendChild(b)}
+function nfcErr(e){
+  const m={NotAllowedError:"تم رفض إذن NFC. اسمح بالإذن في Chrome وتأكد أن الصفحة على HTTPS وليست داخل WebView.",
+  NotSupportedError:"الجهاز لا يدعم NFC أو أنه غير مفعّل في إعدادات الهاتف.",
+  NotReadableError:"تعذّرت القراءة. قرّب الكارت من ظهر الهاتف وثبّته.",
+  NetworkError:"فشلت العملية. ثبّت الكارت على منطقة NFC وتأكد أن سعته كافية وأنه غير مقفل.",
+  AbortError:"تم إيقاف العملية.",InvalidStateError:"عملية NFC أخرى قيد التنفيذ. انتظر قليلاً."};
+  return m[e&&e.name]||("خطأ NFC: "+(e&&e.message||e));
+}
+function crc16(u){let c=0xFFFF;for(let k=0;k<u.length;k++){c^=u[k]<<8;for(let i=0;i<8;i++)c=(c&0x8000)?((c<<1)^0x1021)&0xFFFF:(c<<1)&0xFFFF}return c}
+
+/* ============ أصوات + نافذة تأكيد + تصدير ============ */
+let ac=null,mute=false,wBlob=null,mBlob=null;
+try{mute=localStorage.getItem("nfcMute")==="1"}catch(_){}
+function setSnd(){$("snd").textContent=mute?"🔇":"🔊";$("snd").setAttribute("aria-label",mute?"تشغيل الأصوات":"كتم الأصوات")}
+function initAudio(){try{ac=ac||new(window.AudioContext||window.webkitAudioContext)();if(ac.state==="suspended")ac.resume()}catch(_){}}
+function beep(k){
+  if(mute)return;
+  try{
+    initAudio();
+    const seq=k==="ok"?[[880,0],[1320,.09]]:k==="done"?[[660,0],[880,.1],[1320,.2]]:[[220,0],[165,.15]];
+    const err=k==="err";
+    seq.forEach(([f,t])=>{
+      const o=ac.createOscillator(),g=ac.createGain(),st=ac.currentTime+t,d=err?.22:.09;
+      o.type=err?"square":"sine";o.frequency.value=f;
+      g.gain.setValueAtTime(.0001,st);g.gain.exponentialRampToValueAtTime(err?.06:.12,st+.01);g.gain.exponentialRampToValueAtTime(.0001,st+d);
+      o.connect(g);g.connect(ac.destination);o.start(st);o.stop(st+d+.02);
+    });
+    if(navigator.vibrate)navigator.vibrate(err?[150,80,150]:40);
+  }catch(_){}
+}
+$("snd").addEventListener("click",()=>{mute=!mute;try{localStorage.setItem("nfcMute",mute?"1":"0")}catch(_){}setSnd();if(!mute)beep("ok")});
+setSnd();
+function ask(msg,yes){
+  return new Promise(res=>{
+    const d=$("dlg");$("dMsg").textContent=msg;$("dYes").textContent=yes;
+    $("dYes").onclick=()=>{d.close();res(true)};$("dNo").onclick=()=>{d.close();res(false)};d.oncancel=()=>res(false);
+    d.showModal();
+  });
+}
+function mkExport(box,getImg,getBlob){
+  const row=document.createElement("div");row.className="exp";
+  const f=document.createElement("select");f.setAttribute("aria-label","صيغة التصدير");
+  [["png","PNG"],["jpg","JPG"],["webp","WebP"]].forEach(([v,t])=>f.add(new Option(t,v)));
+  const s=document.createElement("select");s.setAttribute("aria-label","التكبير");
+  [[1,"الحجم الأصلي"],[2,"تكبير ×2"],[4,"تكبير ×4"],[8,"تكبير ×8"]].forEach(([v,t])=>s.add(new Option(t,v)));
+  const b=document.createElement("button");b.className="primary";b.textContent="تصدير الصورة";
+  b.addEventListener("click",()=>{
+    const im=getImg();if(!im||!im.complete||!im.src)return toast("لا توجد صورة للتصدير.","bad");const w0=im.naturalWidth||128,h0=im.naturalHeight||128;
+    const fm=f.value,sc=+s.value;
+    const save=bl=>{const a=document.createElement("a");a.href=URL.createObjectURL(bl);a.download="nfc-image."+fm;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(a.href),4000);toast("تم التصدير بصيغة "+fm.toUpperCase(),"ok")};
+    if(fm==="webp"&&sc===1&&getBlob()&&getBlob().type==="image/webp")return save(getBlob());
+    const c=document.createElement("canvas");c.width=w0*sc;c.height=h0*sc;
+    const x=c.getContext("2d");x.fillStyle="#fff";x.fillRect(0,0,c.width,c.height);x.imageSmoothingQuality="high";x.drawImage(im,0,0,c.width,c.height);
+    c.toBlob(bl=>bl?save(bl):toast("فشل التصدير.","bad"),fm==="jpg"?"image/jpeg":"image/"+fm,.95);
+  });
+  row.append(f,s);box.append(row,b);
+}
+
+/* ============ ضغط وكتابة ============ */
+let img=null,origSize=0,chunks=[],imgId=0,imgCrc=0,fitOk=false,busy=false,done=[],serials={},ctlW=null;
+
+function stripWebP(u){
+  if(u.length<20)return u;
+  const dv=new DataView(u.buffer,u.byteOffset,u.byteLength);let p=12;
+  while(p+8<=u.length){
+    const tag=String.fromCharCode(u[p],u[p+1],u[p+2],u[p+3]),sz=dv.getUint32(p+4,true);
+    if(tag==="VP8 "||tag==="VP8L"){
+      const out=new Uint8Array(12+8+sz+(sz&1));
+      out.set([82,73,70,70],0);new DataView(out.buffer).setUint32(4,out.length-8,true);
+      out.set([87,69,66,80],8);out.set(u.subarray(p,p+8+sz),12);return out;
+    }
+    p+=8+sz+(sz&1);
+  }
+  return u;
+}
+function encode(maxDim,q){
+  const s=Math.min(1,maxDim/Math.max(img.naturalWidth,img.naturalHeight));
+  const w=Math.max(1,Math.round(img.naturalWidth*s)),h=Math.max(1,Math.round(img.naturalHeight*s));
+  const c=document.createElement("canvas");c.width=w;c.height=h;
+  const x=c.getContext("2d");x.fillStyle="#fff";x.fillRect(0,0,w,h);
+  x.imageSmoothingQuality="high";x.drawImage(img,0,0,w,h);
+  return new Promise((res,rej)=>c.toBlob(async b=>{
+    if(!b)return rej(new Error("فشل ترميز الصورة"));
+    if(b.type!=="image/webp")return rej(new Error("المتصفح لا يدعم ترميز WebP"));
+    try{const u=stripWebP(new Uint8Array(await b.arrayBuffer()));res({u,w,h,q,size:u.length})}catch(e){rej(e)}
+  },"image/webp",q));
+}
+async function autoCompress(){
+  const mx=Math.max(img.naturalWidth,img.naturalHeight),M=MAXB();
+  const list=[...new Set([...DIMS.filter(d=>d<mx),Math.min(mx,128)])].sort((a,b)=>b-a);
+  let last=null;
+  for(const d of list){
+    const r=await encode(d,0.05);last=r;
+    if(r.size>M)continue;
+    let lo=0.05,hi=0.92,best=r;
+    for(let i=0;i<9;i++){const mid=(lo+hi)/2,t=await encode(d,mid);if(t.size<=M){best=t;lo=mid}else hi=mid}
+    const top=await encode(d,0.92);if(top.size<=M)best=top;
+    return best;
+  }
+  return last;
+}
+function packet(i){
+  const c=chunks[i],p=new Uint8Array(HDR+c.length);
+  p.set([i,tb,imgId,imgCrc>>8,imgCrc&255],0);p.set(c,HDR);return p;
+}
+function renderRows(){
+  $("autoW").disabled=(!fitOk||nextPending()<0||!!envErr)&&!autoOn;
+  const box=$("cards");box.innerHTML="";
+  chunks.forEach((c,i)=>{
+    const r=document.createElement("div");r.className="row"+(done[i]?" done":"");
+    const t=document.createElement("span");t.textContent="كارت "+(i+1)+" من "+chunks.length+(done[i]?" ✓":"");
+    const b=document.createElement("button");b.className="primary";b.textContent=done[i]?"تمت الكتابة":"اكتب";
+    b.disabled=!fitOk||done[i]||!!envErr;b.addEventListener("click",()=>writeCard(i));
+    r.append(t,b);box.appendChild(r);
+  });
+}
+function plan(u,type,d,pg,ft,hint){
+  const n=N(),M=MAXB(),per=Math.max(1,Math.ceil(u.length/n));chunks=[];
+  for(let i=0;i<n;i++)chunks.push(u.slice(i*per,(i+1)*per));
+  tb=(d?128:0)|(type<<5)|n;imgId=Math.floor(Math.random()*256);imgCrc=crc16(u);done=[];serials={};
+  if(autoOn){autoOn=false;try{ctlW.abort()}catch(_){}}setAuto();
+  pg.innerHTML="";
+  chunks.forEach((c,i)=>{const e=document.createElement("div");e.className="part";e.append("كارت "+(i+1));const b=document.createElement("b");b.textContent=(c.length+(std()?20:HDR+OV))+" / "+CAP();pg.appendChild(e);e.appendChild(b)});
+  fitOk=u.length>0&&u.length<=M;
+  badge(ft,fitOk?"ok":"bad",fitOk?"الحجم مناسب للكتابة على "+n+(n===1?" كارت.":" كروت."):"الحجم يتجاوز الحد ("+M+" بايت). "+hint);
+  $("writeCard").style.display="block";$("wStat").style.display="none";renderRows();
+}
+async function useResult(r,sync){
+  const u=r.u;
+  const old=$("prev").src;wBlob=new Blob([u],{type:"image/webp"});$("prev").src=URL.createObjectURL(wBlob);
+  if(old&&old.startsWith("blob:"))URL.revokeObjectURL(old);
+  $("sDim").textContent=r.w+"×"+r.h;$("sOrig").textContent=origSize+" B";$("sNew").textContent=u.length+" B";
+  if(sync){const md=Math.max(r.w,r.h);$("rDim").value=md;$("vDim").textContent=md+"px";$("rQ").value=Math.round(r.q*100);$("vQ").textContent=Math.round(r.q*100)+"%"}
+  $("outCard").style.display="block";$("dataCard").style.display="none";
+  plan(u,0,0,$("parts"),$("fit"),"صغّر البُعد أو قلّل الجودة أو زد عدد الكروت.");
+}
+
+/*MIDI-START*/
+function makeMidi(txt,bpm){
+  const NM={C:0,D:2,E:4,F:5,G:7,A:9,B:11},D=96,ev=[];let rest=0,first=true;
+  const vl=v=>{const o=[v&127];while(v>>=7)o.unshift((v&127)|128);return o};
+  const toks=txt.trim().split(/\s+/).filter(Boolean);
+  if(!toks.length)throw new Error("اكتب نوتات أولاً.");
+  for(const tk of toks){
+    const [nm,ln]=tk.split(":"),len=Math.max(1,Math.round(D*(parseFloat(ln)||1)));
+    if(nm==="-"){rest+=len;continue}
+    const m=/^([A-Ga-g])([#b]?)(-?\d)$/.exec(nm);
+    if(!m)throw new Error("نوتة غير صالحة: "+tk);
+    const n=12*(+m[3]+1)+NM[m[1].toUpperCase()]+(m[2]==="#"?1:m[2]==="b"?-1:0);
+    if(n<0||n>127)throw new Error("نوتة خارج النطاق: "+tk);
+    ev.push(...vl(rest),...(first?[0x90]:[]),n,80,...vl(len),n,0);first=false;rest=0;
+  }
+  const us=Math.round(6e7/Math.min(300,Math.max(30,bpm||120)));
+  const trk=[0,0xFF,0x51,3,(us>>16)&255,(us>>8)&255,us&255,...ev,0,0xFF,0x2F,0],L=trk.length;
+  return new Uint8Array([77,84,104,100,0,0,0,6,0,0,0,1,0,D,77,84,114,107,(L>>24)&255,(L>>16)&255,(L>>8)&255,L&255,...trk]);
+}
+function parseMidi(u){
+  const rd=(p,n)=>{let v=0;for(let i=0;i<n;i++)v=v*256+(u[p+i]||0);return v};
+  const tag=p=>String.fromCharCode(u[p],u[p+1],u[p+2],u[p+3]);
+  if(u.length<14||tag(0)!=="MThd")return null;
+  const nt=rd(10,2),div=rd(12,2)||96;let p=8+rd(4,4),tempo=500000;const ev=[];
+  for(let t=0;t<nt&&p+8<=u.length;t++){
+    if(tag(p)!=="MTrk")break;
+    const end=Math.min(u.length,p+8+rd(p+4,4));p+=8;
+    const vl=()=>{let v=0,b;do{b=u[p++];v=v*128+(b&127)}while((b&128)&&p<end);return v};
+    let tick=0,st=0;const on={};
+    while(p<end){
+      tick+=vl();const b=u[p];
+      if(b===0xFF){const ty=u[p+1];p+=2;const l=vl();if(ty===0x51&&l===3)tempo=rd(p,3);p+=l;continue}
+      if(b===0xF0||b===0xF7){p++;p+=vl();continue}
+      if(b&128){st=b;p++}
+      const hi=st&0xF0;
+      if(hi===0x90||hi===0x80){
+        const n=u[p],v=u[p+1];p+=2;
+        if(hi===0x90&&v>0)on[n]=tick;
+        else if(on[n]!==undefined){ev.push([on[n],tick-on[n],n]);delete on[n]}
+      }else p+=(hi===0xC0||hi===0xD0)?1:2;
+    }
+    p=end;
+  }
+  const k=tempo/1e6/div;
+  return ev.map(([a,d,n])=>({t:a*k,d:Math.max(d*k,.06),n}));
+}
+/*MIDI-END*/
+function playMidi(u){
+  const ev=parseMidi(u);
+  if(!ev||!ev.length)return toast("تعذّر تشغيل ملف MIDI.","bad");
+  initAudio();const t0=ac.currentTime+.05;
+  ev.forEach(e=>{
+    const o=ac.createOscillator(),g=ac.createGain(),s=t0+e.t;
+    o.type="triangle";o.frequency.value=440*Math.pow(2,(e.n-69)/12);
+    g.gain.setValueAtTime(.0001,s);g.gain.exponentialRampToValueAtTime(.2,s+.02);g.gain.exponentialRampToValueAtTime(.0001,s+e.d);
+    o.connect(g);g.connect(ac.destination);o.start(s);o.stop(s+e.d+.05);
+  });
+}
+async function pipe(u,S){return new Uint8Array(await new Response(new Blob([u]).stream().pipeThrough(new S("deflate-raw"))).arrayBuffer())}
+function withExt(b,ext){const e=new TextEncoder().encode(ext.slice(0,8)),o=new Uint8Array(1+e.length+b.length);o[0]=e.length;o.set(e,1);o.set(b,1+e.length);return o}
+let tb=0,stdText="",srcRaw=null,srcExt="",rbTok=0;
+function rec(i){return std()?{recordType:"text",data:stdText,lang:"ar"}:{recordType:"mime",mediaType:MIME,data:packet(i)}}
+function hideData(){
+  chunks=[];fitOk=false;if(autoOn){autoOn=false;try{ctlW.abort()}catch(_){}}setAuto();
+  $("dataCard").style.display="none";$("writeCard").style.display="none";
+}
+async function rebuild(){
+  if(mode==="img")return;
+  const tk=++rbTok,sd=std();
+  $("rN").disabled=sd;$("vN").textContent=sd?1:$("rN").value;$("maxB").textContent=MAXB();$("dflBox").hidden=sd;
+  let data=null,type=2;
+  try{
+    if(mode==="txt"){stdText=$("tx").value;data=new TextEncoder().encode(stdText);type=1}
+    else if(mode==="file"){if(!srcRaw)return hideData();data=withExt(srcRaw,srcExt)}
+    else data=withExt(makeMidi($("mt").value,+$("bpm").value||120),"mid");
+  }catch(e){hideData();return toast(e.message,"bad")}
+  if(!data.length)return hideData();
+  let d=0,u=data;
+  if(!sd&&$("dfl").checked&&HAS_CS){try{const z=await pipe(data,CompressionStream);if(z.length<data.length){u=z;d=1}}catch(_){}}
+  if(tk!==rbTok)return;
+  $("dOrig").textContent=data.length+" B";$("dNew").textContent=u.length+" B"+(d?" (مضغوط)":"");
+  $("dataCard").style.display="block";$("outCard").style.display="none";
+  plan(u,type,d,$("parts2"),$("fit2"),"قلّل المحتوى أو زد عدد الكروت.");
+}
+function onMode(){
+  mode=$("mode").value;
+  [["img","Img"],["txt","Txt"],["file","File"],["midi","Midi"]].forEach(([m,k])=>$("sec"+k).hidden=m!==mode);
+  $("dflBox").hidden=mode==="img";$("rN").disabled=false;$("vN").textContent=$("rN").value;$("maxB").textContent=MAXB();
+  if(mode==="img"){
+    $("dataCard").style.display="none";
+    if(img){$("outCard").style.display="block";runAuto()}else{$("outCard").style.display="none";hideData()}
+  }else{$("outCard").style.display="none";rebuild()}
+}
+async function onFile(e){
+  const f=e.target.files[0];if(!f)return;
+  let b=new Uint8Array(await f.arrayBuffer());
+  const ext=((f.name.split(".").pop()||"bin").toLowerCase().replace(/[^a-z0-9]/g,"").slice(0,8))||"bin";
+  if(ext==="svg"){const t=new TextDecoder().decode(b).replace(/<!--[\s\S]*?-->/g,"").replace(/<\?xml[\s\S]*?\?>/,"").replace(/<!DOCTYPE[\s\S]*?>/i,"").replace(/>\s+</g,"><").trim();b=new TextEncoder().encode(t)}
+  srcRaw=b;srcExt=ext;
+  $("fInfo").textContent=f.name+" — "+f.size+" بايت"+(ext==="svg"?" (تم تنظيف الـ SVG: "+b.length+" بايت)":"");
+  rebuild();
+}
+
+async function runAuto(){
+  if(!img||busy)return;busy=true;badge($("fit"),"info","جارٍ الضغط...");
+  try{await useResult(await autoCompress(),true)}catch(e){toast(e.message,"bad")}
+  busy=false;
+}
+$("file").addEventListener("change",e=>{
+  const f=e.target.files[0];if(!f)return;origSize=f.size;
+  const u=URL.createObjectURL(f),i=new Image();
+  i.onload=()=>{img=i;URL.revokeObjectURL(u);$("outCard").style.display="block";runAuto()};
+  i.onerror=()=>{URL.revokeObjectURL(u);toast("تعذّر فتح الصورة. اختر ملف صورة صالحاً.","bad")};
+  i.src=u;
+});
+let manT;
+function manual(){
+  $("vDim").textContent=$("rDim").value+"px";$("vQ").textContent=$("rQ").value+"%";
+  clearTimeout(manT);manT=setTimeout(async()=>{if(!img)return;try{await useResult(await encode(+$("rDim").value,+$("rQ").value/100),false)}catch(e){toast(e.message,"bad")}},120);
+}
+$("rDim").addEventListener("input",manual);$("rQ").addEventListener("input",manual);$("auto").addEventListener("click",runAuto);
+let capT;
+function cfg(){$("vN").textContent=$("rN").value;$("maxB").textContent=MAXB();clearTimeout(capT);capT=setTimeout(()=>mode==="img"?runAuto():rebuild(),250)}
+$("rN").addEventListener("input",cfg);$("cap").addEventListener("input",cfg);$("maxB").textContent=MAXB();
+
+let autoOn=false;
+function nextPending(){for(let k=0;k<chunks.length;k++)if(!done[k])return k;return -1}
+function setAuto(){const b=$("autoW");b.textContent=autoOn?"إيقاف الكتابة التلقائية":"كتابة تلقائية لكل الكروت (بالترتيب)";b.classList.toggle("primary",!autoOn)}
+async function eraseOk(ev){
+  const recs=Array.from(ev.message.records).filter(x=>x.recordType!=="empty");
+  if(!recs.length)return true;
+  let n=0;recs.forEach(x=>n+=x.data?x.data.byteLength:0);
+  return ask("تحذير: الكارت فيه بيانات ("+recs.length+" سجل، "+n+" بايت). ستُمسح جميع الملفات الموجودة على الشريحة ولا يمكن استرجاعها. هل تريد المتابعة؟","نعم، امسح واكتب");
+}
+async function autoWrite(){
+  if(autoOn){autoOn=false;try{ctlW.abort()}catch(_){}setAuto();badge($("wStat"),"warn","تم إيقاف الكتابة التلقائية.");return}
+  if(envErr)return toast(envErr,"bad");
+  if(nextPending()<0)return;
+  initAudio();
+  if(ctlW)try{ctlW.abort()}catch(_){}
+  ctlW=new AbortController();const sig=ctlW.signal,r=new NDEFReader();
+  let working=false,last="",until=0;
+  autoOn=true;setAuto();
+  badge($("wStat"),"warn","قرّب الكارت رقم "+(nextPending()+1)+" من ظهر الهاتف وثبّته...");
+  r.onreadingerror=()=>toast("تعذّرت قراءة الكارت. أعد تقريبه.","bad");
+  r.onreading=async ev=>{
+    if(working||Date.now()<until)return;
+    const sn=ev.serialNumber||"",i=nextPending();
+    if(i<0||(sn&&sn===last))return;
+    if(sn&&Object.keys(serials).some(k=>serials[k]===sn)){toast("هذا الكارت استُخدم لجزء آخر. قرّب كارتاً مختلفاً.","bad");return}
+    working=true;
+    try{
+      if(!await eraseOk(ev)){working=false;badge($("wStat"),"warn","تم الإلغاء ولم يتغير شيء على الكارت. قرّب كارتاً آخر.");return}
+      await r.write({records:[rec(i)]},{overwrite:true,signal:sig});
+      done[i]=true;serials[i]=sn;last=sn;until=Date.now()+1500;renderRows();
+      const n=nextPending();
+      if(n<0){autoOn=false;setAuto();renderRows();badge($("wStat"),"ok","تمت كتابة كل الكروت بنجاح.");beep("done");toast("تمت كتابة كل الكروت","ok");try{ctlW.abort()}catch(_){}}
+      else{beep("ok");badge($("wStat"),"ok","تمت كتابة الكارت "+(i+1)+". أبعده وقرّب الكارت رقم "+(n+1)+".")}
+      working=false;
+    }catch(e){
+      working=false;if(sig.aborted)return;
+      const m=e&&e.name==="NetworkError"?"فشلت الكتابة. ثبّت الكارت ولا تحرّكه، وتأكد أن سعته تكفي ("+(chunks[i].length+HDR+OV)+" بايت) وأنه غير مقفل للقراءة فقط. جرّب الكارت نفسه مرة أخرى.":nfcErr(e);
+      badge($("wStat"),"bad",m);toast(m,"bad");
+    }
+  };
+  try{await r.scan({signal:sig})}catch(e){autoOn=false;setAuto();badge($("wStat"),"bad",nfcErr(e));toast(nfcErr(e),"bad")}
+}
+
+async function writeCard(i){
+  if(envErr)return toast(envErr,"bad");
+  initAudio();autoOn=false;setAuto();
+  if(ctlW)try{ctlW.abort()}catch(_){}
+  ctlW=new AbortController();const sig=ctlW.signal,r=new NDEFReader();let working=false;
+  badge($("wStat"),"warn","قرّب الكارت رقم "+(i+1)+" من ظهر الهاتف وثبّته...");
+  r.onreadingerror=()=>toast("تعذّرت قراءة الكارت. أعد تقريبه.","bad");
+  r.onreading=async ev=>{
+    if(working)return;
+    const sn=ev.serialNumber||"";
+    if(sn&&Object.keys(serials).some(k=>+k!==i&&serials[k]===sn)){toast("هذا الكارت استُخدم لجزء آخر. استخدم كارتاً مختلفاً.","bad");return}
+    working=true;
+    try{
+      if(!await eraseOk(ev)){working=false;badge($("wStat"),"warn","تم الإلغاء ولم يتغير شيء على الكارت. قرّب كارتاً آخر.");return}
+      await r.write({records:[rec(i)]},{overwrite:true,signal:sig});
+      done[i]=true;serials[i]=sn;renderRows();
+      const left=done.filter(Boolean).length<chunks.length;
+      badge($("wStat"),"ok",left?"تمت كتابة الكارت "+(i+1)+". أبعده واختر الكارت التالي.":"تمت كتابة كل الكروت بنجاح.");
+      beep(left?"ok":"done");toast("تمت الكتابة بنجاح","ok");try{ctlW.abort()}catch(_){}
+    }catch(e){
+      working=false;
+      const m=e&&e.name==="NetworkError"?"فشلت الكتابة. ثبّت الكارت ولا تحرّكه، وتأكد أن سعته تكفي ("+(chunks[i].length+HDR+OV)+" بايت) وأنه غير مقفل للقراءة فقط.":nfcErr(e);
+      badge($("wStat"),"bad",m);toast(m,"bad");
+    }
+  };
+  try{await r.scan({signal:sig})}catch(e){badge($("wStat"),"bad",nfcErr(e));toast(nfcErr(e),"bad")}
+}
+
+/* ============ قراءة ودمج ============ */
+let ctlR=null,rd=null,mUrl=null;
+function resetRead(){
+  if(ctlR)try{ctlR.abort()}catch(_){}
+  ctlR=null;rd=null;if(mUrl){URL.revokeObjectURL(mUrl);mUrl=null}
+  $("res").style.display="none";$("reset").style.display="none";$("rStat").style.display="none";
+  $("scan").disabled=false;$("scan").textContent="ابدأ المسح";
+}
+function parse(ev){
+  for(const r of ev.message.records)if(r.recordType==="mime"&&r.mediaType===MIME&&r.data){
+    const d=r.data;return new Uint8Array(d.buffer.slice(d.byteOffset,d.byteOffset+d.byteLength));
+  }
+  return null;
+}
+const MT={png:"image/png",jpg:"image/jpeg",jpeg:"image/jpeg",gif:"image/gif",webp:"image/webp",svg:"image/svg+xml",avif:"image/avif",amr:"audio/amr",mp3:"audio/mpeg",ogg:"audio/ogg",opus:"audio/ogg",wav:"audio/wav",m4a:"audio/mp4",aac:"audio/aac",webm:"video/webm",mp4:"video/mp4","3gp":"video/3gpp",mid:"audio/midi",midi:"audio/midi",txt:"text/plain"};
+const IMG=new Set(["png","jpg","jpeg","gif","webp","svg","avif"]),AUD=new Set(["amr","mp3","ogg","opus","wav","m4a","aac"]),VID=new Set(["webm","mp4","3gp"]);
+let mBytes=null;
+function showResult(bytes,ext,text){
+  ["merged","aud","vid","txt","playM","cpy","dl2"].forEach(i=>$(i).hidden=true);$("expR").style.display="none";
+  if(mUrl){URL.revokeObjectURL(mUrl);mUrl=null}
+  if(text!=null)ext="txt";
+  mBytes=bytes;mBlob=new Blob([bytes],{type:MT[ext]||"application/octet-stream"});mUrl=URL.createObjectURL(mBlob);
+  if(text!=null){$("txt").textContent=text;$("txt").hidden=false;$("cpy").hidden=false}
+  else if(IMG.has(ext)){$("merged").src=mUrl;$("merged").hidden=false;$("expR").style.display="block"}
+  else if(AUD.has(ext)){$("aud").src=mUrl;$("aud").hidden=false}
+  else if(VID.has(ext)){$("vid").src=mUrl;$("vid").hidden=false}
+  else if(ext==="mid"||ext==="midi")$("playM").hidden=false;
+  $("dl2").href=mUrl;$("dl2").download="nfc-file."+ext;$("dl2").hidden=false;
+  $("mSize").textContent="الحجم: "+bytes.length+" بايت ("+ext.toUpperCase()+")";
+  $("res").style.display="block";$("reset").style.display="block";
+}
+function stopRead(){try{ctlR.abort()}catch(_){}$("scan").disabled=false;$("scan").textContent="ابدأ المسح"}
+async function finishRead(){
+  let len=0;for(let k=0;k<rd.total;k++)len+=rd.ch[k].length;
+  const all=new Uint8Array(len);let o=0;for(let k=0;k<rd.total;k++){all.set(rd.ch[k],o);o+=rd.ch[k].length}
+  const good=crc16(all)===rd.crc;let bytes=all,ext="webp",text=null;
+  try{
+    if(rd.defl)bytes=await pipe(all,DecompressionStream);
+    if(rd.type===1){text=new TextDecoder().decode(bytes)}
+    else if(rd.type===2){const l=bytes[0];ext=new TextDecoder().decode(bytes.slice(1,1+l)).toLowerCase().replace(/[^a-z0-9]/g,"")||"bin";bytes=bytes.slice(1+l)}
+  }catch(e){toast("فشل فك الضغط. قد تكون البيانات تالفة.","bad");return}
+  showResult(bytes,ext,text);
+  badge($("crcB"),good?"ok":"bad",good?"فحص السلامة: المحتوى سليم.":"فشل فحص السلامة. قد يكون المحتوى تالفاً، أعد قراءة الكروت.");
+  badge($("rStat"),good?"ok":"warn","تم دمج "+rd.total+" كروت.");
+  beep(good?"done":"err");stopRead();
+}
+function onReading(ev){
+  const tr=Array.from(ev.message.records).find(x=>x.recordType==="text"&&x.data);
+  if(tr){
+    const t=new TextDecoder(tr.encoding||"utf-8").decode(tr.data);
+    showResult(new TextEncoder().encode(t),"txt",t);$("crcB").style.display="none";
+    badge($("rStat"),"ok","تمت قراءة النص.");beep("done");stopRead();return;
+  }
+  const u=parse(ev);
+  if(!u||u.length<HDR){toast("هذا الكارت ليس من التطبيق.","bad");return}
+  const idx=u[0],b1=u[1],total=b1&31,type=(b1>>5)&3,defl=b1>>7,id=u[2],crc=(u[3]<<8)|u[4];
+  if(total<1||idx>=total||type===3){toast("بيانات الكارت غير صالحة.","bad");return}
+  if(!rd)rd={id,total,crc,type,defl,ch:{}};
+  else if(rd.id!==id||rd.total!==total||rd.type!==type||rd.defl!==defl){toast("هذا الكارت من محتوى مختلف. أعد المسح من جديد إن أردت محتوى آخر.","bad");return}
+  if(rd.ch[idx]){toast("الكارت رقم "+(idx+1)+" قُرئ من قبل. قرّب كارتاً آخر.","bad");return}
+  rd.ch[idx]=u.slice(HDR);
+  const got=Object.keys(rd.ch).length;
+  if(got<rd.total){
+    beep("ok");const miss=[];for(let k=0;k<rd.total;k++)if(!rd.ch[k])miss.push(k+1);
+    badge($("rStat"),"ok","تم "+got+" من "+rd.total+". الناقص: "+miss.join("، ")+". أبعد الكارت وقرّب التالي.");return;
+  }
+  finishRead();
+}
+$("scan").addEventListener("click",async()=>{
+  if(envErr)return toast(envErr,"bad");
+  initAudio();resetRead();
+  try{
+    const r=new NDEFReader();ctlR=new AbortController();
+    r.onreadingerror=()=>toast("تعذّرت قراءة الكارت. أعد تقريبه وثبّته.","bad");
+    r.onreading=onReading;
+    await r.scan({signal:ctlR.signal});
+    $("scan").disabled=true;$("scan").textContent="جارٍ المسح...";$("reset").style.display="block";
+    badge($("rStat"),"info","قرّب أي كارت من ظهر الهاتف. الترتيب غير مهم.");
+  }catch(e){toast(nfcErr(e),"bad");badge($("rStat"),"bad",nfcErr(e))}
+});
+$("reset").addEventListener("click",resetRead);
+
+$("autoW").addEventListener("click",autoWrite);
+$("mode").addEventListener("change",onMode);
+$("std").addEventListener("change",rebuild);$("dfl").addEventListener("change",rebuild);
+let txT;const dbn=()=>{clearTimeout(txT);txT=setTimeout(rebuild,300)};
+$("tx").addEventListener("input",dbn);$("mt").addEventListener("input",dbn);$("bpm").addEventListener("input",dbn);
+$("rf").addEventListener("change",onFile);
+$("playMk").addEventListener("click",()=>{try{playMidi(makeMidi($("mt").value,+$("bpm").value||120))}catch(e){toast(e.message,"bad")}});
+$("playM").addEventListener("click",()=>{if(mBytes)playMidi(mBytes)});
+$("cpy").addEventListener("click",async()=>{try{await navigator.clipboard.writeText($("txt").textContent);toast("تم نسخ النص","ok")}catch(_){toast("تعذّر النسخ","bad")}});
+$("aud").addEventListener("error",()=>toast("المتصفح لا يشغّل هذه الصيغة. استخدم زر التحميل.","bad"));
+$("vid").addEventListener("error",()=>toast("المتصفح لا يشغّل هذا الفيديو. استخدم زر التحميل.","bad"));
+mkExport($("expW"),()=>$("prev"),()=>wBlob);mkExport($("expR"),()=>$("merged"),()=>mBlob);
+if("serviceWorker" in navigator&&location.protocol.indexOf("http")===0)navigator.serviceWorker.register("sw.js").catch(()=>{});
+})();
+</script>
+</body>
+</html>
